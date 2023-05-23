@@ -48,6 +48,18 @@ def graficas(*args):
         figura.get_tk_widget().pack()
         figura.draw()
 
+        df = pd.dataframe(frecuencia, columns=['Valor'])
+
+        num_clases = 4
+        amplitud = (df['Valor'].max() - df['Valor'].min()) / num_clases
+
+        intervalos = [df['Valor'].min() + i * amplitud for i in range(num_clases)]
+        intervalos.append(df['Valor'].max())
+
+        frecuencias = pd.cut(df['Valor'], bins=intervalos).value_counts().sort_index()
+
+        tabla_frecuencia = pd.DataFrame({'Intervalo de Clase': frecuencias.index, 'Frecuencia': frecuencias.values})
+
 
 ventana = tk.Tk()
 ventana.title("Graficas y calculos")
