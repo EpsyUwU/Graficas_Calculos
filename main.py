@@ -5,6 +5,7 @@ from pandastable import Table
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
+import statistics
 
 
 def seleccion_archivo():
@@ -16,6 +17,114 @@ def seleccion_archivo():
     for column in datos.columns:
         opcion_atributo["menu"].add_command(label=column, command=lambda value=column: seleccion_atributo.set(value))
     actualizar_opciones_graficas()
+
+def mostrar_resultados_categoricos():
+    tipo_atributo = seleccion_atributo.get()
+    datos_atributo = datos[tipo_atributo]
+
+    label_resultados_agrupados.config(text="")
+    label_resultados_no_agrupados.config(text="")
+    # Verificar si los datos son categóricos
+
+
+        # Calcular la moda utilizando el método mode() de pandas
+    moda = datos_atributo.mode().iloc[0]
+
+        # Calcular la media asignando un valor numérico a cada categoría única
+    categorias_unicas = datos_atributo.unique()
+    valores_numericos = range(len(categorias_unicas))
+    datos_numericos = datos_atributo.replace(categorias_unicas, valores_numericos)
+    media = datos_numericos.mean()
+
+        # Crear una cadena con los resultados
+    resultados = f"Media: {media}\nModa: {moda}"
+        # Actualizar el contenido de la etiqueta
+    label_resultados_categoricos.config(text=resultados)
+
+def datos_agrupados():
+    tipo_atributo = seleccion_atributo.get()
+    datos_atributo = datos[tipo_atributo]
+    tabla_frecuencias = calcular_tabla_frecuencias()
+
+        # Calcular las marcas de clase y las frecuencias para cada intervalo de clase
+    marcas_clase = tabla_frecuencias['Marca']
+    frecuencias = tabla_frecuencias['Frec Abs']
+    # Calcular la media utilizando las marcas de clase y las frecuencias
+    media = sum(marcas_clase * frecuencias) / sum(frecuencias)
+
+    # Calcular la mediana utilizando las marcas de clase y las frecuencias
+    n = sum(frecuencias)
+    cumfreq = frecuencias.cumsum()
+    cfbin = cumfreq.searchsorted(n / 2)
+    if n % 2 == 0:
+        l1 = marcas_clase[cfbin - 1]
+        l2 = marcas_clase[cfbin]
+        mediana = (l1 + l2) / 2
+    else:
+        mediana = marcas_clase[cfbin]
+
+        # Calcular la moda utilizando las marcas de clase y las frecuencias
+    moda_index = frecuencias.idxmax()
+    moda = marcas_clase[moda_index]
+
+    if media < mediana < moda:
+        sesgo = "Hacia la izquierda"
+    elif media == mediana == moda:
+        sesgo = "Simétrico"
+    elif moda < mediana < media:
+        sesgo = "Hacia la derecha"
+    else:
+        sesgo = "No definido"
+    rango = datos_atributo.max() - datos_atributo.min()
+    varianza = (((tabla_frecuencias['Frec Abs'] * tabla_frecuencias['Marca']) ** 2).sum() - len(
+    datos_atributo) * media ** 2) / (len(datos_atributo) - 1)
+    desviacion_estandar = np.sqrt(varianza)
+
+    return media, mediana, moda, sesgo, rango, varianza, desviacion_estandar
+
+
+def datos_no_agrupados(datos_conglomerados):
+
+    tipo_atributo = seleccion_atributo.get()
+    datos_atributo = datos[tipo_atributo]
+
+    media = statistics.mean(datos_conglomerados)
+    mediana = statistics.median(datos_conglomerados)
+    moda = statistics.mode(datos_conglomerados)
+
+    if media < mediana < moda:
+        sesgo = "Hacia la izquierda"
+    elif media == mediana == moda:
+        sesgo = "Simétrico"
+    elif moda < mediana < media:
+        sesgo = "Hacia la derecha"
+    else:
+        sesgo = "No definido"
+    rango = datos_atributo.max() - datos_atributo.min()
+    varianza = ((datos_atributo - media) ** 2).sum() / len(datos_atributo)
+    desviacion_estandar = np.sqrt(varianza)
+
+    return media, mediana, moda, sesgo, rango, varianza, desviacion_estandar
+
+
+def mostrar_resultados():
+    label_resultados_categoricos.config(text="")
+
+    media, mediana, moda, sesgo, rango, varianza, desviacion_estandar = datos_agrupados()
+
+    resultados = f"Agrupados \n Media: {media}\nMediana: {mediana}\nModa: {moda}\nSesgo: {sesgo}\nRango: {rango}\nVarianza: {varianza}\nDesviación estándar: {desviacion_estandar}"
+    label_resultados_agrupados.config(text=resultados)
+
+
+def mostrar_resulatados_no_agrupado():
+    tabla_frecuencias = calcular_tabla_frecuencias()
+
+    label_resultados_categoricos.config(text="")
+    datos_conglomerados = tabla_frecuencias['Marca']
+    media, mediana, moda, sesgo, rango, varianza, desviacion_estandar = datos_no_agrupados(datos_conglomerados)
+
+    resultados = f"No agrupados \n Media: {media}\nMediana: {mediana}\nModa: {moda}\nSesgo: {sesgo}\nRango: {rango}\nVarianza: {varianza}\nDesviación estándar: {desviacion_estandar}"
+    label_resultados_no_agrupados.config(text=resultados)
 
 
 def actualizar_opciones_graficas(*args):
@@ -29,6 +138,12 @@ def actualizar_opciones_graficas(*args):
         opciones = ["barra", "pastel"]
     for opcion in opciones:
         opcion_grafica["menu"].add_command(label=opcion, command=lambda value=opcion: seleccion_grafica.set(value))
+
+    if np.issubdtype(tipo_dato, np.number):
+        mostrar_resultados()
+        mostrar_resulatados_no_agrupado()
+    else:
+        mostrar_resultados_categoricos()
 
     seleccion_grafica.set(opciones[0])
     mostrar_tabla_frecuencias()
@@ -53,7 +168,6 @@ def calcular_tabla_frecuencias():
         frecuencia_absoluta = ((datos_atributo >= lim_inf) & (datos_atributo < lim_sup)).sum()
         marca_clase = (lim_inf + lim_sup) / 2
         frecuencia_relativa = frecuencia_absoluta / len(datos_atributo)
-        datos_clase = datos_atributo[(datos_atributo >= lim_inf) & (datos_atributo < lim_sup)]
         tabla_frecuencias.loc[i] = [round(lim_inf), round(lim_sup), round(marca_clase), round(frecuencia_absoluta),
                                     round(frecuencia_relativa, 2)]
     return tabla_frecuencias
@@ -86,7 +200,7 @@ def mostrar_tabla_frecuencias():
 
         ventana_tabla.destroy()
         ventana_tabla = tk.Frame(ventana)
-        ventana_tabla.pack(side="bottom", fill="x")
+        ventana_tabla.pack(side="left", fill="y")
         tabla = Table(ventana_tabla, dataframe=tabla_frecuencias)
         tabla.show()
 
@@ -106,8 +220,17 @@ def exportar_csv():
         tabla_frecuencias.to_csv(archivo, index=False)
 
 
+def exportar_grafica():
+    # Muestra una ventana de diálogo para seleccionar el archivo de destino
+    archivo = filedialog.asksaveasfilename(
+        filetypes=[("Archivos PNG", "*.png"), ("Archivos PDF", "*.pdf"), ("Archivos SVG", "*.svg")])
+
+    # Guarda la imagen de la gráfica en el archivo seleccionado
+    figura.figure.savefig(archivo)
+
 
 def graficas(*args):
+    global figura
     if datos is not None:
         for borrar in grafica_ventana.winfo_children():
             borrar.destroy()
@@ -128,7 +251,7 @@ def graficas(*args):
 
         if tipo_grafica == "barra":
 
-            figura = plt.Figure(figsize=(9,5 ))
+            figura = plt.Figure(figsize=(9,5))
             eje = figura.add_subplot(111)
 
             tabla_frecuencias = calcular_tabla_frecuencia_cualitativa()
@@ -215,6 +338,7 @@ ventana_tabla = tk.Frame(ventana)
 ventana_tabla.pack(side="bottom", fill="x")
 
 datos = None
+figura = None
 
 boton_archivo = tk.Button(columna_botones, text="Selecciona tu archivo", command=seleccion_archivo)
 boton_archivo.grid(row=0, pady=10)
@@ -225,11 +349,21 @@ opcion_atributo.grid(row=1, pady=10)
 
 seleccion_grafica = tk.StringVar(columna_botones)
 seleccion_grafica.set("barra")
+
 opcion_grafica = tk.OptionMenu(columna_botones, seleccion_grafica, "barra", "histograma", "pastel", "poligono", "ojiva","pastel 2", command=graficas)
 opcion_grafica.grid(row=3, pady=10)
 
 boton_exportar_csv = tk.Button(columna_botones, text="Exportar CSV", command=exportar_csv)
 boton_exportar_csv.grid(row=4, pady=10)
+
+label_resultados_agrupados = tk.Label(ventana)
+label_resultados_agrupados.pack(side="right", fill="x")
+
+label_resultados_no_agrupados = tk.Label(ventana)
+label_resultados_no_agrupados.pack(side="right", fill="x")
+
+label_resultados_categoricos = tk.Label(ventana)
+label_resultados_categoricos.pack(side="right", fill="x")
 
 seleccion_atributo.trace('w', actualizar_opciones_graficas)
 seleccion_atributo.trace('w', graficas)
