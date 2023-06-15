@@ -1,3 +1,4 @@
+import math
 import tkinter as tk
 from tkinter import filedialog
 import pandas as pd
@@ -6,6 +7,8 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
 import statistics
+import scipy.stats as stats
+
 
 
 def seleccion_archivo():
@@ -42,88 +45,83 @@ def mostrar_resultados_categoricos():
     label_resultados_categoricos.config(text=resultados)
 
 def datos_agrupados():
-    tipo_atributo = seleccion_atributo.get()
-    datos_atributo = datos[tipo_atributo]
     tabla_frecuencias = calcular_tabla_frecuencias()
 
-        # Calcular las marcas de clase y las frecuencias para cada intervalo de clase
     marcas_clase = tabla_frecuencias['Marca']
     frecuencias = tabla_frecuencias['Frec Abs']
-    # Calcular la media utilizando las marcas de clase y las frecuencias
+    numero_clase = len(marcas_clase)
+
     media = sum(marcas_clase * frecuencias) / sum(frecuencias)
 
-    # Calcular la mediana utilizando las marcas de clase y las frecuencias
-    n = sum(frecuencias)
-    cumfreq = frecuencias.cumsum()
-    cfbin = cumfreq.searchsorted(n / 2)
-    if n % 2 == 0:
-        l1 = marcas_clase[cfbin - 1]
-        l2 = marcas_clase[cfbin]
-        mediana = (l1 + l2) / 2
-    else:
-        mediana = marcas_clase[cfbin]
+    index_medio = numero_clase // 2
 
-        # Calcular la moda utilizando las marcas de clase y las frecuencias
+    if numero_clase % 2 == 0:
+        mediana = (marcas_clase[index_medio] + marcas_clase[index_medio - 1]) / 2
+    else:
+        mediana = marcas_clase[index_medio]
+
     moda_index = frecuencias.idxmax()
     moda = marcas_clase[moda_index]
 
-    if media < mediana < moda:
-        sesgo = "Hacia la izquierda"
-    elif media == mediana == moda:
-        sesgo = "Simétrico"
-    elif moda < mediana < media:
-        sesgo = "Hacia la derecha"
-    else:
-        sesgo = "No definido"
-    rango = datos_atributo.max() - datos_atributo.min()
-    varianza = (((tabla_frecuencias['Frec Abs'] * tabla_frecuencias['Marca']) ** 2).sum() - len(
-    datos_atributo) * media ** 2) / (len(datos_atributo) - 1)
+    suma = 0
+    for x in range(numero_clase):
+        suma += frecuencias[x] * pow(marcas_clase[x], 2)
+    varianza = (suma - sum(frecuencias) * pow(media, 2)) / (sum(frecuencias) - 1)
     desviacion_estandar = np.sqrt(varianza)
 
-    return media, mediana, moda, sesgo, rango, varianza, desviacion_estandar
+    return media, mediana, moda, varianza, desviacion_estandar
 
 
-def datos_no_agrupados(datos_conglomerados):
+def datos_no_agrupados():
 
     tipo_atributo = seleccion_atributo.get()
     datos_atributo = datos[tipo_atributo]
 
-    media = statistics.mean(datos_conglomerados)
-    mediana = statistics.median(datos_conglomerados)
-    moda = statistics.mode(datos_conglomerados)
+    media = sum(datos_atributo) / len(datos_atributo)
+    media_truncada = stats.trim_mean(datos_atributo, 0.2)
+    media_geometrica = round(statistics.geometric_mean(datos_atributo), 1)
+
+    mediana = statistics.mean(datos_atributo)
+    moda = statistics.mode(datos_atributo)
+
 
     if media < mediana < moda:
         sesgo = "Hacia la izquierda"
     elif media == mediana == moda:
         sesgo = "Simétrico"
-    elif moda < mediana < media:
+    elif moda > mediana > media:
         sesgo = "Hacia la derecha"
     else:
         sesgo = "No definido"
+
     rango = datos_atributo.max() - datos_atributo.min()
-    varianza = ((datos_atributo - media) ** 2).sum() / len(datos_atributo)
+
+    suma = 0
+    for valor in datos_atributo:
+        suma += pow(valor - media, 2)
+
+    varianza = suma / len(datos_atributo)
+
     desviacion_estandar = np.sqrt(varianza)
 
-    return media, mediana, moda, sesgo, rango, varianza, desviacion_estandar
+    return media,media_truncada,media_geometrica, mediana, moda, sesgo, rango, varianza, desviacion_estandar
 
 
 def mostrar_resultados():
     label_resultados_categoricos.config(text="")
 
-    media, mediana, moda, sesgo, rango, varianza, desviacion_estandar = datos_agrupados()
+    media, mediana, moda, varianza, desviacion_estandar = datos_agrupados()
 
-    resultados = f"Agrupados \n Media: {media}\nMediana: {mediana}\nModa: {moda}\nSesgo: {sesgo}\nRango: {rango}\nVarianza: {varianza}\nDesviación estándar: {desviacion_estandar}"
+    resultados = f"Agrupados \n Media: {media}\nMediana: {mediana}\nModa: {moda}\nVarianza: {varianza}\nDesviación estándar: {desviacion_estandar}"
     label_resultados_agrupados.config(text=resultados)
 
 
 def mostrar_resulatados_no_agrupado():
-    tabla_frecuencias = calcular_tabla_frecuencias()
 
     label_resultados_categoricos.config(text="")
-    datos_conglomerados = tabla_frecuencias['Marca']
-    media, mediana, moda, sesgo, rango, varianza, desviacion_estandar = datos_no_agrupados(datos_conglomerados)
+    media, media_truncada, media_geometrica, mediana, moda, sesgo, rango, varianza, desviacion_estandar = datos_no_agrupados()
 
-    resultados = f"No agrupados \n Media: {media}\nMediana: {mediana}\nModa: {moda}\nSesgo: {sesgo}\nRango: {rango}\nVarianza: {varianza}\nDesviación estándar: {desviacion_estandar}"
+    resultados = f"No agrupados \n Media: {media}\n Media truncada: {media_truncada}\n Media geometrica: {media_geometrica}\nMediana: {mediana}\nModa: {moda}\nSesgo: {sesgo}\nRango: {rango}\nVarianza: {varianza}\nDesviación estándar: {desviacion_estandar}"
     label_resultados_no_agrupados.config(text=resultados)
 
 
@@ -154,24 +152,38 @@ def calcular_tabla_frecuencias():
     tipo_atributo = seleccion_atributo.get()
     datos_atributo = datos[tipo_atributo]
 
-    minimo = datos_atributo.min()
-    maximo = datos_atributo.max()
+    minimo = min(datos_atributo)
+    maximo = max(datos_atributo)
+
     rango = maximo - minimo
-    numero_clase = int(1 + 3.3 * np.log10(len(datos_atributo)))
+
+    datos2 = len(datos_atributo)
+
+    numero_clase = 1 + math.ceil(3.3 * np.log10(datos2))
+
     intervalo = rango / numero_clase
     limites = np.arange(minimo, maximo + intervalo, intervalo)
 
-    tabla_frecuencias = pd.DataFrame(columns=["Lim inf", "Lim sup", "Marca", "Frec Abs", "Frec Rel"])
+    tabla_frecuencias = pd.DataFrame(
+        columns=["Lim inf", "Lim sup", "Marca", "Frec Abs", "Frec Rel", "Frec Abs Aco", "Frec Rel Aco"])
+
+    frecuencia_absoluta_acumulada = 0
+    frecuencia_relativa_acumulada = 0
+
     for i in range(numero_clase):
         lim_inf = limites[i]
         lim_sup = limites[i + 1]
         frecuencia_absoluta = ((datos_atributo >= lim_inf) & (datos_atributo < lim_sup)).sum()
         marca_clase = (lim_inf + lim_sup) / 2
         frecuencia_relativa = frecuencia_absoluta / len(datos_atributo)
-        tabla_frecuencias.loc[i] = [round(lim_inf), round(lim_sup), round(marca_clase), round(frecuencia_absoluta),
-                                    round(frecuencia_relativa, 2)]
-    return tabla_frecuencias
 
+        frecuencia_absoluta_acumulada += frecuencia_absoluta
+        frecuencia_relativa_acumulada += frecuencia_relativa
+
+        tabla_frecuencias.loc[i] = [lim_inf, lim_sup, marca_clase, frecuencia_absoluta, frecuencia_relativa,
+                                    frecuencia_absoluta_acumulada, frecuencia_relativa_acumulada]
+
+    return tabla_frecuencias
 
 
 def calcular_tabla_frecuencia_cualitativa():
@@ -223,7 +235,7 @@ def exportar_csv():
 def exportar_grafica():
     # Muestra una ventana de diálogo para seleccionar el archivo de destino
     archivo = filedialog.asksaveasfilename(
-        filetypes=[("Archivos PNG", "*.png"), ("Archivos PDF", "*.pdf"), ("Archivos SVG", "*.svg")])
+        filetypes=[("Archivos PNG", ".png"), ("Archivos PDF", ".pdf"), ("Archivos SVG", "*.svg")])
 
     # Guarda la imagen de la gráfica en el archivo seleccionado
     figura.figure.savefig(archivo)
@@ -291,18 +303,19 @@ def graficas(*args):
             eje.bar(tabla_frecuencias['Marca'], tabla_frecuencias['Frec Abs'],
                     width=tabla_frecuencias['Lim sup'][0] - tabla_frecuencias['Lim inf'][0])
 
-            eje.set_xlabel('Valores')
-            eje.set_ylabel('Frecuencia')
+            eje.set_xlabel('Marca')
+            eje.set_ylabel('Frecuencia Abs')
             eje.set_title('Histograma')
         elif tipo_grafica == "ojiva":
             figura = plt.Figure(figsize=(8, 6), dpi=100)
             eje = figura.add_subplot(111)
 
             tabla_frecuencias = calcular_tabla_frecuencias()
-            frecuencia_relativa_acumulada = tabla_frecuencias['Frec Rel'].cumsum()
-            eje.plot(tabla_frecuencias['Marca'], frecuencia_relativa_acumulada, '-o')
+            x = [0] + list(tabla_frecuencias['Marca'])
+            y = [0] + list(tabla_frecuencias['Frec Rel Aco'])
+            eje.plot(x,y, '-o')
 
-            eje.set_xlabel('Valores')
+            eje.set_xlabel('Marca')
             eje.set_ylabel('Frecuencia Relativa Acumulada')
             eje.set_title('Ojiva')
 
@@ -339,6 +352,9 @@ ventana_tabla.pack(side="bottom", fill="x")
 
 datos = None
 figura = None
+
+boton_exportar_grafica = tk.Button(columna_botones, text="Exportar gráfica", command=exportar_grafica)
+boton_exportar_grafica.grid(row=5, pady=10)
 
 boton_archivo = tk.Button(columna_botones, text="Selecciona tu archivo", command=seleccion_archivo)
 boton_archivo.grid(row=0, pady=10)
